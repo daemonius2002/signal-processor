@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ascultă Universul - Signal Processor</title>
+<meta name="description" content="Alege un pulsar, o stea sau o planetă, ascult-o și vezi-i frecvența. Pentru copii curioși.">
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <img src="icon.png" alt="" width="36" height="36">
+  <div class="brand">
+    <h1>Ascultă Universul</h1>
+    <p>Alege ceva de pe cer, ascultă și privește cum arată sunetul.</p>
+  </div>
+  <div class="transport">
+    <button id="btn-play" class="btn" type="button" aria-pressed="true">Pauză</button>
+    <label class="volume"><span>Volum</span><input id="volume" type="range" min="0" max="100" value="60" aria-label="Volum"></label>
+    <a id="download" class="btn ghost" href="#" rel="noopener">Descarcă pentru Windows</a>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="left" aria-label="Alege sursa">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-view="sky" aria-selected="true">Cer</button>
+      <button class="tab" role="tab" data-view="solar" aria-selected="false">Planete</button>
+      <button class="tab" role="tab" data-view="sounds" aria-selected="false">Sunete</button>
+      <button class="tab" role="tab" data-view="mic" aria-selected="false">Microfon</button>
+    </div>
+
+    <div class="view" id="view-sky">
+      <div class="row">
+        <select id="sky-view" aria-label="Vedere">
+          <option value="all">Tot cerul</option>
+          <option value="north">Emisfera nordică</option>
+          <option value="south">Emisfera sudică</option>
+        </select>
+        <span class="legend"><i class="k-pulsar"></i>pulsar <i class="k-star"></i>stea <i class="k-variable"></i>stea pulsantă <i class="k-fiction"></i>film</span>
+      </div>
+      <canvas id="sky" class="map" aria-label="Harta cerului"></canvas>
+      <div class="chips" id="sky-list"></div>
+    </div>
+
+    <div class="view" id="view-solar" hidden>
+      <div class="row"><strong>Sistemul Solar</strong><span class="legend" id="solar-date"></span></div>
+      <canvas id="solar" class="map square" aria-label="Sistemul Solar"></canvas>
+      <label class="row slider"><span>Viteza timpului</span><input id="solar-speed" type="range" min="0" max="100" value="35"></label>
+    </div>
+
+    <div class="view" id="view-sounds" hidden>
+      <div id="sound-list"></div>
+    </div>
+
+    <div class="view" id="view-mic" hidden>
+      <p class="lead">Vorbește, cântă, fluieră sau bate din palme și privește ce apare în dreapta.</p>
+      <button id="btn-mic" class="btn big" type="button">Pornește microfonul</button>
+      <p class="hint" id="mic-note">Browserul îți va cere voie să folosească microfonul. Sunetul nu este trimis nicăieri.</p>
+    </div>
+
+    <article class="info" id="info" aria-live="polite">
+      <h2 id="info-name">Alege un punct de pe hartă</h2>
+      <p class="facts" id="info-facts">Fiecare punct colorat este un pulsar sau o stea pe care o poți asculta.</p>
+      <p class="story" id="info-story"></p>
+    </article>
+  </section>
+
+  <section class="right" aria-label="Cum arată sunetul">
+    <div class="pane">
+      <div class="pane-head"><strong>Forma undei</strong><span id="wave-info"></span></div>
+      <canvas id="wave" class="plot"></canvas>
+    </div>
+    <div class="pane">
+      <div class="pane-head"><strong>Spectru: ce frecvențe sunt în sunet</strong><span id="spec-info"></span></div>
+      <canvas id="spec" class="plot tall"></canvas>
+    </div>
+    <div class="readouts">
+      <div><span>Frecvența cea mai puternică</span><b id="r-freq">-</b></div>
+      <div><span>Cât de tare</span><b id="r-level">-</b></div>
+      <div><span>Nota cea mai apropiată</span><b id="r-note">-</b></div>
+    </div>
+    <p class="honest">Semnalele sunt sintetizate din valori măsurate și publicate (frecvențele de rotație ale pulsarilor,
+      vibrațiile stelelor, anii planetelor). Nu sunt înregistrări de radiotelescop. «Mesajul din Contact» este ficțiune, din filmul din 1997.</p>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

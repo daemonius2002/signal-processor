@@ -1,0 +1,15 @@
+# Signal Processor v1.3.0 - pinned dependencies (Python 3.11, 3.12 or 3.13)
+# Install:  python -m pip install -r requirements.txt
+#
+# --- Runtime -----------------------------------------------------------------
+PyQt6==6.12.1          # GUI framework (Qt 6 widgets)
+PyQt6-Qt6==6.12.0      # Qt 6 runtime libraries used by PyQt6 (pinned transitive dep)
+PyQt6_sip==13.13.1     # sip binding runtime used by PyQt6 (pinned transitive dep)
+pyqtgraph==0.14.0      # real-time plotting
+numpy==2.4.6           # vectorised array maths
+scipy==1.17.1          # FFT (pocketfft), window functions, Butterworth SOS filters, WAV fallback
+soundfile==0.14.0      # WAV I/O through the libsndfile binary bundled in the wheel
+#
+# --- Build & test ------------------------------------------------------------
+pyinstaller==6.22.3    # standalone executable / .app bundling
+pytest==9.2.0          # unit tests

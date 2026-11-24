@@ -1,0 +1,329 @@
+{
+ "note": "Sunete sintetizate pe calculator, nu înregistrări.",
+ "sounds": [
+  {
+   "key": "ton_la",
+   "category": "Tonuri simple",
+   "title": "Un singur ton: La (440 Hz)",
+   "story": "Cel mai simplu sunet: aerul vibrează de 440 de ori pe secundă. Pe spectru apare un singur vârf.",
+   "file": "1_Tonuri_simple/Un_singur_ton_La_440_Hz.wav",
+   "view_hz": 2000.0,
+   "seconds": 5.0
+  },
+  {
+   "key": "gros_subtire",
+   "category": "Tonuri simple",
+   "title": "De la gros la subțire",
+   "story": "Patru tonuri: 110, 440, 1760 și 7040 Hz. Cu cât vibrația e mai rapidă, cu atât sunetul e mai subțire, iar vârful se mută spre dreapta.",
+   "file": "1_Tonuri_simple/De_la_gros_la_subtire.wav",
+   "view_hz": 8000.0,
+   "seconds": 7.6
+  },
+  {
+   "key": "gama",
+   "category": "Tonuri simple",
+   "title": "Gama Do-Re-Mi",
+   "story": "Opt note, fiecare puțin mai sus decât cea dinainte. Ultimul Do vibrează exact de două ori mai repede decât primul.",
+   "file": "1_Tonuri_simple/Gama_Do_Re_Mi.wav",
+   "view_hz": 1500.0,
+   "seconds": 5.5
+  },
+  {
+   "key": "alunecare",
+   "category": "Tonuri simple",
+   "title": "Alunecare: 40 Hz - 12 000 Hz",
+   "story": "Un ton care urcă încet. Copiii aud și capătul de sus; adulții îl pierd mai devreme. Test de auz!",
+   "file": "1_Tonuri_simple/Alunecare_40_Hz_12_000_Hz.wav",
+   "view_hz": 13000.0,
+   "seconds": 10.0
+  },
+  {
+   "key": "batai",
+   "category": "Tonuri simple",
+   "title": "Două tonuri aproape la fel (bătăi)",
+   "story": "440 și 443 Hz cântate împreună. Urechea aude un singur sunet care crește și scade de 3 ori pe secundă.",
+   "file": "1_Tonuri_simple/Doua_tonuri_aproape_la_fel_batai.wav",
+   "view_hz": 1000.0,
+   "seconds": 7.0
+  },
+  {
+   "key": "tare_incet",
+   "category": "Tonuri simple",
+   "title": "Tare și încet",
+   "story": "Aceeași notă, mai tare și mai încet. Vârful nu se mută stânga-dreapta, doar urcă și coboară.",
+   "file": "1_Tonuri_simple/Tare_si_incet.wav",
+   "view_hz": 1500.0,
+   "seconds": 8.0
+  },
+  {
+   "key": "pian",
+   "category": "Instrumente (aceeași notă)",
+   "title": "Pian",
+   "story": "Nota La la pian: un vârf la 440 Hz și multe vârfuri mai mici la 880, 1320... Se sting repede.",
+   "file": "2_Instrumente_aceeasi_nota/Pian.wav",
+   "view_hz": 5000.0,
+   "seconds": 4.0
+  },
+  {
+   "key": "chitara",
+   "category": "Instrumente (aceeași notă)",
+   "title": "Chitară",
+   "story": "O coardă ciupită. Aceeași notă La, dar vârfurile au alte înălțimi, de aceea sună altfel decât pianul.",
+   "file": "2_Instrumente_aceeasi_nota/Chitara.wav",
+   "view_hz": 5000.0,
+   "seconds": 4.0
+  },
+  {
+   "key": "flaut",
+   "category": "Instrumente (aceeași notă)",
+   "title": "Flaut",
+   "story": "Flautul e aproape un ton curat: un vârf mare și doar câteva mici. De aceea sună moale.",
+   "file": "2_Instrumente_aceeasi_nota/Flaut.wav",
+   "view_hz": 5000.0,
+   "seconds": 4.0
+  },
+  {
+   "key": "vioara",
+   "category": "Instrumente (aceeași notă)",
+   "title": "Vioară",
+   "story": "Vioara are foarte multe vârfuri (armonice), de aceea sună bogat și puțin aspru.",
+   "file": "2_Instrumente_aceeasi_nota/Vioara.wav",
+   "view_hz": 8000.0,
+   "seconds": 4.0
+  },
+  {
+   "key": "clopot",
+   "category": "Instrumente (aceeași notă)",
+   "title": "Clopot",
+   "story": "La clopot vârfurile nu sunt la distanțe egale. De aceea sună «metalic».",
+   "file": "2_Instrumente_aceeasi_nota/Clopot.wav",
+   "view_hz": 5000.0,
+   "seconds": 5.0
+  },
+  {
+   "key": "toba",
+   "category": "Instrumente (aceeași notă)",
+   "title": "Tobe",
+   "story": "Tobele nu au o notă anume: sunt lovituri scurte de zgomot. Toba mare e jos, cinelul e sus.",
+   "file": "2_Instrumente_aceeasi_nota/Tobe.wav",
+   "view_hz": 12000.0,
+   "seconds": 6.0
+  },
+  {
+   "key": "stelute",
+   "category": "Muzică",
+   "title": "Cântecel la pian («Ah! vous dirai-je, maman»)",
+   "story": "Melodia cunoscută de la «Twinkle, Twinkle». Urmărește cum sare vârful de la o notă la alta.",
+   "file": "3_Muzica/Cantecel_la_pian_Ah_vous_dirai_je_maman.wav",
+   "view_hz": 3000.0,
+   "seconds": 8.22
+  },
+  {
+   "key": "oda",
+   "category": "Muzică",
+   "title": "Beethoven: Odă bucuriei, la flaut",
+   "story": "Tema din Simfonia a 9-a, cântată la flaut.",
+   "file": "3_Muzica/Beethoven_Oda_bucuriei_la_flaut.wav",
+   "view_hz": 3000.0,
+   "seconds": 8.22
+  },
+  {
+   "key": "chitara_melodie",
+   "category": "Muzică",
+   "title": "Odă bucuriei, la chitară",
+   "story": "Aceleași note ca la flaut, alt instrument: vârfurile principale sunt în același loc.",
+   "file": "3_Muzica/Oda_bucuriei_la_chitara.wav",
+   "view_hz": 3000.0,
+   "seconds": 8.22
+  },
+  {
+   "key": "acorduri",
+   "category": "Muzică",
+   "title": "Acord vesel și acord trist",
+   "story": "Trei note deodată. Primele două acorduri (Do major) sună vesel, ultimele două (La minor) sună trist.",
+   "file": "3_Muzica/Acord_vesel_si_acord_trist.wav",
+   "view_hz": 2000.0,
+   "seconds": 10.8
+  },
+  {
+   "key": "voce_robot",
+   "category": "Voce",
+   "title": "Voce de robot: «Bună!»",
+   "story": "O voce făcută de calculator. Vocea are multe vârfuri care se schimbă la fiecare sunet rostit.",
+   "file": "4_Voce/Voce_de_robot_Buna.wav",
+   "view_hz": 5000.0,
+   "seconds": 11.14
+  },
+  {
+   "key": "voce_groasa",
+   "category": "Voce",
+   "title": "Voce groasă",
+   "story": "Aceeași propoziție cu voce groasă: vârfurile sunt mai la stânga și mai dese.",
+   "file": "4_Voce/Voce_groasa.wav",
+   "view_hz": 5000.0,
+   "seconds": 4.81
+  },
+  {
+   "key": "voce_subtire",
+   "category": "Voce",
+   "title": "Voce subțire",
+   "story": "Și cu voce subțire: vârfurile sunt mai la dreapta și mai rare.",
+   "file": "4_Voce/Voce_subtire.wav",
+   "view_hz": 5000.0,
+   "seconds": 5.46
+  },
+  {
+   "key": "numaratoare",
+   "category": "Voce",
+   "title": "Numărătoare: unu, doi, trei...",
+   "story": "Fiecare cuvânt arată altfel pe ecran. Încearcă să ghicești cifra fără să asculți!",
+   "file": "4_Voce/Numaratoare_unu_doi_trei.wav",
+   "view_hz": 5000.0,
+   "seconds": 11.3
+  },
+  {
+   "key": "vocale",
+   "category": "Voce",
+   "title": "Vocalele A, E, I, O, U",
+   "story": "Aceeași notă, dar gura își schimbă forma. Fiecare vocală întărește alte vârfuri.",
+   "file": "4_Voce/Vocalele_A_E_I_O_U.wav",
+   "view_hz": 4000.0,
+   "seconds": 6.75
+  },
+  {
+   "key": "ploaie",
+   "category": "Natură",
+   "title": "Ploaie",
+   "story": "Mii de picături, fiecare cu sunetul ei: împreună dau un fâșâit întins pe tot ecranul.",
+   "file": "5_Natura/Ploaie.wav",
+   "view_hz": 14000.0,
+   "seconds": 8.0
+  },
+  {
+   "key": "vant",
+   "category": "Natură",
+   "title": "Vânt",
+   "story": "Vântul e un zgomot gros, care se umflă și se liniștește. Uneori șuieră.",
+   "file": "5_Natura/Vant.wav",
+   "view_hz": 3000.0,
+   "seconds": 9.0
+  },
+  {
+   "key": "valuri",
+   "category": "Natură",
+   "title": "Valurile mării",
+   "story": "Fiecare val vine, se sparge și se retrage, cam o dată la 5 secunde.",
+   "file": "5_Natura/Valurile_marii.wav",
+   "view_hz": 10000.0,
+   "seconds": 10.0
+  },
+  {
+   "key": "tunet",
+   "category": "Natură",
+   "title": "Tunet",
+   "story": "Un pocnet, apoi un huruit foarte gros, sub 150 Hz. Sunetele groase ajung departe.",
+   "file": "5_Natura/Tunet.wav",
+   "view_hz": 3000.0,
+   "seconds": 7.0
+  },
+  {
+   "key": "pasare",
+   "category": "Natură",
+   "title": "Pasăre",
+   "story": "Ciripit: tonuri foarte subțiri (3000-6000 Hz) care alunecă repede în sus sau în jos.",
+   "file": "5_Natura/Pasare.wav",
+   "view_hz": 8000.0,
+   "seconds": 7.0
+  },
+  {
+   "key": "greier",
+   "category": "Natură",
+   "title": "Greier",
+   "story": "Greierul își freacă aripile: un ton de vreo 4300 Hz, întrerupt de multe ori pe secundă.",
+   "file": "5_Natura/Greier.wav",
+   "view_hz": 8000.0,
+   "seconds": 6.0
+  },
+  {
+   "key": "albina",
+   "category": "Natură",
+   "title": "Albină",
+   "story": "Bâzâitul e chiar bătaia aripilor: cam 230 de bătăi pe secundă, deci un vârf la 230 Hz.",
+   "file": "5_Natura/Albina.wav",
+   "view_hz": 3000.0,
+   "seconds": 6.0
+  },
+  {
+   "key": "inima",
+   "category": "Natură",
+   "title": "Bătăile inimii",
+   "story": "«Lub-dub», de vreo 70 de ori pe minut. Sunete foarte groase, sub 100 Hz.",
+   "file": "5_Natura/Bataile_inimii.wav",
+   "view_hz": 400.0,
+   "seconds": 7.0
+  },
+  {
+   "key": "sirena",
+   "category": "Din jurul nostru",
+   "title": "Sirenă",
+   "story": "Tonul urcă și coboară fără oprire, ca să fie greu de ignorat.",
+   "file": "6_Din_jurul_nostru/Sirena.wav",
+   "view_hz": 5000.0,
+   "seconds": 7.0
+  },
+  {
+   "key": "telefon",
+   "category": "Din jurul nostru",
+   "title": "Telefon vechi",
+   "story": "Două tonuri întrerupte foarte repede: așa «zbârnâie» soneria.",
+   "file": "6_Din_jurul_nostru/Telefon_vechi.wav",
+   "view_hz": 5000.0,
+   "seconds": 6.0
+  },
+  {
+   "key": "ceas",
+   "category": "Din jurul nostru",
+   "title": "Ceas: tic-tac",
+   "story": "Pocnituri scurte, de două ori pe secundă. Un sunet scurt se întinde pe multe frecvențe.",
+   "file": "6_Din_jurul_nostru/Ceas_tic_tac.wav",
+   "view_hz": 8000.0,
+   "seconds": 7.0
+  },
+  {
+   "key": "fluierat",
+   "category": "Din jurul nostru",
+   "title": "Fluierat",
+   "story": "Fluieratul e aproape un ton curat, ca un flaut mic făcut din buze.",
+   "file": "6_Din_jurul_nostru/Fluierat.wav",
+   "view_hz": 4000.0,
+   "seconds": 5.0
+  },
+  {
+   "key": "zgomot_alb",
+   "category": "Zgomote",
+   "title": "Zgomot alb",
+   "story": "Toate frecvențele, la fel de tare: spectrul e plat. Sună ca un televizor fără semnal.",
+   "file": "7_Zgomote/Zgomot_alb.wav",
+   "view_hz": 20000.0,
+   "seconds": 5.0
+  },
+  {
+   "key": "zgomot_roz",
+   "category": "Zgomote",
+   "title": "Zgomot roz",
+   "story": "Mai mult din cele groase, mai puțin din cele subțiri. Seamănă cu o cascadă.",
+   "file": "7_Zgomote/Zgomot_roz.wav",
+   "view_hz": 20000.0,
+   "seconds": 5.0
+  },
+  {
+   "key": "zgomot_maro",
+   "category": "Zgomote",
+   "title": "Zgomot maro",
+   "story": "Aproape numai sunete groase: un huruit, ca un tunet îndepărtat.",
+   "file": "7_Zgomote/Zgomot_maro.wav",
+   "view_hz": 5000.0,
+   "seconds": 5.0
+  }
+ ]
+}

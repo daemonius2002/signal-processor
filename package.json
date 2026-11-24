@@ -1,0 +1,8 @@
+{
+  "name": "signal-processor-web",
+  "version": "1.3.0",
+  "private": true,
+  "description": "Asculta Universul - web version of Signal Processor",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
