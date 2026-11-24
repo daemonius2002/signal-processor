@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller build configuration for Signal Processor v1.4.1
+# PyInstaller build configuration for Signal Processor v1.4.2
 #
 # Run on the operating system you are building for (PyInstaller does not cross-compile):
 #
@@ -18,7 +18,7 @@ import sys
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 APP_NAME = "SignalProcessor"
-APP_VERSION = "1.4.1"
+APP_VERSION = "1.4.2"
 
 # soundfile ships the libsndfile shared library inside the "_soundfile_data"
 # package; make sure it is bundled on every platform.

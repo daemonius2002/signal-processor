@@ -1,4 +1,4 @@
-# Signal Processor v1.4.1 - User Guide
+# Signal Processor v1.4.2 - User Guide
 
 Real-time frequency analysis of WAV files, CSV files and a built-in signal generator:
 FFT spectrum, PSD, Butterworth filters, numeric metrics and a live latency monitor.

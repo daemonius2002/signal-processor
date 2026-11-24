@@ -1,4 +1,4 @@
-# Signal Processor v1.4.1 - Developer Notes
+# Signal Processor v1.4.2 - Developer Notes
 
 ## 1. Layout
 
@@ -203,12 +203,22 @@ Notes
   of the frame-time figures.
 * `tests/generate_sky_samples.py` writes the WAV files, the catalogue and the map picture.
 
-## 9. Windows installer (v1.4.1)
+## 9. Windows installer (v1.4.2)
 
-`SignalProcessor_Setup_v1.4.1.exe` was assembled on Linux, not with PyInstaller: a conda-forge
+`SignalProcessor_Setup_v1.4.2.exe` was assembled on Linux, not with PyInstaller: a conda-forge
 CPython 3.13 for Windows, the pinned `win_amd64` wheels unpacked into its `site-packages`, the
 application sources, and an NSIS script (installs per user under
 `%LOCALAPPDATA%\Programs\SignalProcessor`, no administrator rights). Unused Qt modules (QML, Quick,
 Designer, Bluetooth and similar) were removed from the bundle. It could not be run on Windows from
 the build machine, so its first start on Windows is the first real test. `build.spec` remains the
 supported way to build on the target system itself.
+
+Running-application check (added in v1.4.2). Up to v1.4.1 the installer started copying while the
+program was still open; Windows then refused to replace the loaded runtime files and NSIS stopped
+with "error writing file ... python\ffi-8.dll". The installer and the uninstaller now test this
+first by opening `python\python313.dll` for writing, which fails exactly while a copy started from
+the install folder is alive. If so, they ask, then run a small PowerShell script that closes only
+the `python.exe` / `pythonw.exe` processes whose executable is inside the install folder (window
+close first, forced end after 5 s). Other Python programs on the machine are not touched. If the
+program is still open after that, a Retry / Cancel message asks for it to be closed by hand. The
+application code is unchanged from v1.4.1.
