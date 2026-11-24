@@ -1,4 +1,4 @@
-# Signal Processor v1.3.0 - User Guide
+# Signal Processor v1.4.0 - User Guide
 
 Real-time frequency analysis of WAV files, CSV files and a built-in signal generator:
 FFT spectrum, PSD, Butterworth filters, numeric metrics and a live latency monitor.
@@ -166,7 +166,7 @@ Create the sample files first: `python tests/generate_samples.py` (writes to `te
 `Export Metrics` > choose JSON or CSV. The file holds the source, all settings, the five metrics and
 the latency statistics, with a time stamp and the application version.
 
-## 4a. Sky Map - listening to pulsars and stars (v1.3.0)
+## 4a. Sky Map - listening to pulsars and stars (v1.4.0)
 
 `Sky Map` (Ctrl+M) replaces the control sidebar with a map of the whole sky. Click a coloured dot, or
 a name in the list, and the analyser tunes to that object: the waveform shows its pulses, the
@@ -203,7 +203,7 @@ opened with `Load WAV`.
 Sound uses QtMultimedia, which is part of PyQt6. If no audio device is found, the **Sunet** box is
 greyed out and everything else still works.
 
-## 4b. Movable panels, planets, sound kit, microphone (v1.3.0)
+## 4b. Movable panels, planets, sound kit, microphone (v1.4.0)
 
 **Panels.** Controls, Cer (sky), Planete (Solar System) and Sunete (sound kit) are dockable panels,
 switched with the toolbar buttons or Ctrl+1 ... Ctrl+4. Drag a panel by its title to another edge of
@@ -232,6 +232,38 @@ For real recordings use `Load WAV` or the microphone.
 ask for microphone permission (Settings > Privacy > Microphone).
 
 **Sunet** and the volume slider in the toolbar switch the loudspeakers for Cer, Planete and Sunete.
+
+## 4c. LED bands, spectrogram, noise, waves and room acoustics (v1.4.0)
+
+**View** (Controls > Analysis) switches the lower pane between three displays:
+
+* *Spectrum (line)* - the classic trace with peak marker and crosshair.
+* *1/3-octave LED bands* - 28 bands from 31.5 Hz to 16 kHz as LED columns, 3 dB per LED, with
+  falling peak-hold markers, like a hardware real-time analyser. Each band shows the RMS level in
+  dBFS of everything between `fc / 2^(1/6)` and `fc * 2^(1/6)`.
+* *Spectrogram* - frequency across (logarithmic), time down, level as colour (-110 ... -10 dBFS).
+  It shows how a sound changes, and things a single spectrum hides, such as a faint constant whistle
+  at 18 kHz appearing as a thin vertical line.
+
+**Live generator > Signal**: *Tones + noise* (now three tones), *White noise* (same power at every
+frequency: rises 1 dB per band on the LED view) or *Pink noise* (3 dB less per octave: flat on the LED
+view). *Play it on the loudspeakers* makes the generator audible.
+
+**Unde** (Ctrl+5): three simple waves a, b, c and their sum d, drawn one above the other, with a
+frequency and a level for each. The analyser shows the three peaks again: a complex wave is only a
+sum of simple ones (Fourier, 1822; the fast algorithm, FFT, by Cooley and Tukey, 1965).
+
+**Acustică** (Ctrl+6) - room response, as done with a real-time analyser and pink noise:
+
+1. Put the microphone where you listen. Choose *Zgomot roz* and press *Pornește măsurarea*. The
+   loudspeakers play the noise, the analyser switches to the microphone (FFT 8192 or more).
+2. The chart shows each band relative to the average of the 100 Hz - 10 kHz bands, averaged over all
+   frames since the start (*Reia media* restarts it). Orange = too loud, teal = too weak.
+3. *Salvează CSV* writes the deviation and the equaliser correction (the deviation with the sign
+   changed, limited to +/-12 dB) for each band.
+
+The result contains the response of the loudspeakers and of the microphone too. With a laptop or
+headset microphone it is indicative only; a measurement microphone is needed for real calibration.
 
 ## 5. Command line
 

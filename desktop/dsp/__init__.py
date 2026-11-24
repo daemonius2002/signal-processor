@@ -9,9 +9,11 @@ from .processor import (
     FrameResult,
     Metrics,
     SignalProcessor,
+    THIRD_OCTAVE_CENTRES,
+    third_octave_levels,
 )
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 
 __all__ = [
     "FFT_SIZES",
@@ -22,5 +24,7 @@ __all__ = [
     "FrameResult",
     "Metrics",
     "SignalProcessor",
+    "THIRD_OCTAVE_CENTRES",
+    "third_octave_levels",
     "__version__",
 ]

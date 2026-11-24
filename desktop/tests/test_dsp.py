@@ -522,3 +522,57 @@ def test_sky_audio_and_prime_message():
         else:
             count += 1
     assert groups[:4] == [2, 3, 5, 7]
+
+
+# ------------------------------------------- third-octave bands, noise, room
+def test_third_octave_band_of_a_tone():
+    from dsp import THIRD_OCTAVE_CENTRES, third_octave_levels
+
+    fs, n = 48000.0, 16384
+    result = SignalProcessor(fs, DSPConfig(fft_size=n)).process_frame(sine(1000.0, n, fs=fs, amp=0.5))
+    levels = third_octave_levels(result.psd, fs)
+    assert len(levels) == len(THIRD_OCTAVE_CENTRES) == 28
+    band = THIRD_OCTAVE_CENTRES.index(1000.0)
+    assert levels[band] == pytest.approx(20 * np.log10(0.5 / np.sqrt(2)), abs=0.1)      # RMS level of the tone
+    assert np.nanmax(np.delete(levels, band)) < levels[band] - 60.0
+    low_rate = third_octave_levels(SignalProcessor(8000.0, DSPConfig(fft_size=4096)).process_frame(sine(500.0, 4096, fs=8000.0)).psd, 8000.0)
+    assert np.isnan(low_rate[-1]) and np.isfinite(low_rate[THIRD_OCTAVE_CENTRES.index(500.0)])
+
+
+@pytest.mark.parametrize("mode, slope", [("white", 1.0), ("pink", 0.0)])
+def test_generator_noise_colours(mode, slope):
+    """White noise rises 1 dB per third-octave band; pink noise is flat (-3 dB per octave in PSD)."""
+    from dsp import third_octave_levels
+
+    fs, n = 48000.0, 16384
+    gen = SyntheticGenerator(fs, seed=4)
+    gen.set_mode(mode)
+    proc = SignalProcessor(fs, DSPConfig(fft_size=n))
+    power = sum(10 ** (third_octave_levels(proc.process_frame(gen.generate(n)).psd, fs) / 10) for _ in range(40))
+    levels = 10 * np.log10(power / 40)
+    fitted = np.polyfit(np.arange(5, 26), levels[5:26], 1)[0]                 # 100 Hz ... 10 kHz
+    assert fitted == pytest.approx(slope, abs=0.08)
+    assert 0.05 < float(np.std(gen.generate(48000))) < 0.2                     # about -20 dBFS
+    with pytest.raises(ValueError):
+        gen.set_mode("brown")
+
+
+def test_room_deviation_and_test_signals():
+    pytest.importorskip("PyQt6")
+    from dsp import THIRD_OCTAVE_CENTRES
+    from ui.lab_panels import band_deviation, noise_buffer, tone_buffer
+
+    centres = np.array(THIRD_OCTAVE_CENTRES)
+    flat = np.full(28, 1e-4)
+    assert np.allclose(band_deviation(flat, "pink"), 0.0)
+    assert np.allclose(band_deviation(flat * centres / 1000.0, "white"), 0.0, atol=1e-9)      # white: +1 dB per band removed
+    bumped = flat.copy()
+    bumped[list(THIRD_OCTAVE_CENTRES).index(125.0)] *= 10 ** 0.6                                # +6 dB at 125 Hz
+    deviation = band_deviation(bumped, "pink")
+    assert deviation[list(THIRD_OCTAVE_CENTRES).index(125.0)] == pytest.approx(6.0, abs=0.4)
+    assert np.all(np.isnan(band_deviation(np.zeros(28))))
+    for colour in ("white", "pink"):
+        noise = noise_buffer(colour, seconds=2.0)
+        assert noise.dtype == np.float32 and float(np.sqrt(np.mean(noise.astype(float) ** 2))) == pytest.approx(0.1, rel=0.05)
+    loop = tone_buffer([(440.4, 0.5), (1200.0, 0.25)])
+    assert loop.size == 44100 and abs(float(loop[0])) < 1e-6                                    # whole periods: seamless loop

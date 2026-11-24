@@ -5,6 +5,8 @@ const DOWNLOAD_URL = "https://github.com/daemonius2002/signal-processor/releases
 const COLORS = { pulsar: "#4dd0c4", star: "#f2b24a", variable: "#b79cf2", planet: "#7fb3ff", fiction: "#ff6b8b" };
 const SKY = { bg: "#0a0f1a", grid: "#1b2636", line: "#32465f", star: "#e8eef7", text: "#8595a8", milky: "#27374d" };
 const HEMISPHERE_SPAN = 115;
+const BAND_CENTRES = [31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500,
+  3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000];
 const NOTE_NAMES = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
 const $ = (id) => document.getElementById(id);
 
@@ -14,7 +16,7 @@ const state = {
   ctx: null, gain: null, player: null, micStream: null, micNode: null, analyser: null,
   playing: true, volume: 0.6,
   source: null,          // {samples: Float32Array, fs, fft, viewHz, startedAt, live}
-  loadToken: 0, blink: 0,
+  loadToken: 0, blink: 0, specMode: "line", history: null, historyKey: "",
   solarDays: (Date.now() - Date.UTC(2000, 0, 1, 12)) / 86400000, solarSpeed: 0, lastFrame: performance.now(),
 };
 
@@ -57,11 +59,12 @@ function analyse(frame, fs) {
   const re = new Float32Array(n), im = new Float32Array(n);
   for (let i = 0; i < n; i++) re[i] = frame[i] * w[i];
   fft(re, im);
-  const bins = n / 2, db = new Float32Array(bins);
+  const bins = n / 2, db = new Float32Array(bins), power = new Float32Array(bins);
   let best = 1, bestValue = -1;
   for (let k = 0; k < bins; k++) {
     const mag = Math.hypot(re[k], im[k]) * 4 / n;          // 2/N and the Hann coherent gain of 0.5
     db[k] = 20 * Math.log10(Math.max(mag, 1e-7));
+    power[k] = mag * mag / 3;                                // mean square per bin: /2 for a sine, /1.5 for the Hann noise bandwidth
     if (k >= 2 && mag > bestValue) { bestValue = mag; best = k; }
   }
   let offset = 0;
@@ -69,7 +72,7 @@ function analyse(frame, fs) {
     const a = db[best - 1], b = db[best], c = db[best + 1], curve = a - 2 * b + c;
     if (curve < 0) offset = Math.max(-0.5, Math.min(0.5, 0.5 * (a - c) / curve));
   }
-  return { db, peakHz: (best + offset) * fs / n, peakDb: db[best], binHz: fs / n };
+  return { db, power, peakHz: (best + offset) * fs / n, peakDb: db[best], binHz: fs / n };
 }
 
 function noteName(hz) {
@@ -266,6 +269,66 @@ function drawSpectrum(result, viewHz) {
   }
 }
 
+/** 28 third-octave bands as LED columns (3 dB per LED), like a hardware real-time analyser. */
+function drawBands(result) {
+  const { g, w, h } = fit($("spec"));
+  g.fillStyle = "#161d27"; g.fillRect(0, 0, w, h);
+  const left = 38, bottom = 22, top = 6, ph = h - bottom - top, floor = -72, segs = 24, sh = ph / segs, cw = (w - left - 4) / BAND_CENTRES.length;
+  g.font = "10px system-ui, sans-serif"; g.fillStyle = SKY.text; g.textAlign = "right";
+  for (let d = 0; d >= floor; d -= 12) g.fillText(`${d} dB`, left - 4, top + ph * (-d) / (-floor) + 4);
+  g.textAlign = "center";
+  BAND_CENTRES.forEach((fc, i) => {
+    let lit = 0;
+    if (result && fc * 1.1225 < result.binHz * result.power.length) {
+      const lo = fc / 1.1225 / result.binHz, hi = fc * 1.1225 / result.binHz;
+      let sum = 0;
+      for (let k = Math.floor(lo); k <= Math.ceil(hi) && k < result.power.length; k++) {
+        const overlap = Math.min(hi, k + 0.5) - Math.max(lo, k - 0.5);        // share of this bin inside the band
+        if (overlap > 0) sum += result.power[k] * overlap;
+      }
+      lit = Math.ceil((10 * Math.log10(Math.max(sum, 1e-12)) - floor) / 3);
+    }
+    for (let sgm = 0; sgm < segs; sgm++) {
+      const dbTop = floor + (sgm + 1) * 3;
+      g.fillStyle = sgm < lit ? (dbTop > -6 ? "#ff6b6b" : dbTop > -18 ? "#f0c04a" : "#57d08a") : "#1e2733";
+      g.fillRect(left + i * cw + 1.5, top + ph - (sgm + 1) * sh + 1, cw - 3, sh - 2);
+    }
+    if (i % 3 === 0) { g.fillStyle = SKY.text; g.fillText(fc >= 1000 ? `${fc / 1000}k` : `${fc}`, left + (i + 0.5) * cw, h - 6); }
+  });
+}
+
+/** Spectrogram: frequency across (logarithmic), time down, level as colour. */
+function drawSpectrogram(result, viewHz) {
+  const { g, w, h } = fit($("spec"));
+  const cols = 320, rows = 200, left = 38, bottom = 22, top = 6;
+  g.fillStyle = "#161d27"; g.fillRect(0, 0, w, h);
+  if (!result) return;
+  const fHi = Math.min(viewHz, 20000), fLo = fHi >= 2000 ? 20 : Math.max(2 * result.binHz, fHi / 200), key = `${fLo}:${fHi}:${result.binHz}`;
+  if (!state.history || state.historyKey !== key) {
+    state.history = document.createElement("canvas"); state.history.width = cols; state.history.height = rows; state.historyKey = key;
+    const hg = state.history.getContext("2d"); hg.fillStyle = "#080a14"; hg.fillRect(0, 0, cols, rows);
+  }
+  const hg = state.history.getContext("2d");
+  hg.drawImage(state.history, 0, -1);                          // scroll one row up
+  const row = hg.createImageData(cols, 1), stops = [[8, 10, 20], [60, 20, 110], [190, 50, 90], [245, 150, 40], [255, 250, 200]];
+  for (let x = 0; x < cols; x++) {
+    const f = fLo * Math.pow(fHi / fLo, x / (cols - 1)), k = Math.min(result.db.length - 1, f / result.binHz), k0 = Math.floor(k);
+    const d = result.db[k0] + (result.db[Math.min(k0 + 1, result.db.length - 1)] - result.db[k0]) * (k - k0);
+    const t = Math.max(0, Math.min(0.9999, (d + 110) / 100)) * 4, i = Math.floor(t), u = t - i;
+    for (let c = 0; c < 3; c++) row.data[x * 4 + c] = stops[i][c] + (stops[i + 1][c] - stops[i][c]) * u;
+    row.data[x * 4 + 3] = 255;
+  }
+  hg.putImageData(row, 0, rows - 1);
+  g.imageSmoothingEnabled = false;
+  g.drawImage(state.history, left, top, w - left - 4, h - bottom - top);
+  g.font = "10px system-ui, sans-serif"; g.fillStyle = SKY.text; g.textAlign = "center";
+  for (const f of [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]) {
+    if (f < fLo || f > fHi) continue;
+    g.fillText(f >= 1000 ? `${f / 1000} kHz` : `${f} Hz`, left + (w - left - 4) * Math.log(f / fLo) / Math.log(fHi / fLo), h - 6);
+  }
+  g.textAlign = "right"; g.fillText("acum", left - 4, h - bottom - 2); g.fillText("înainte", left - 2, top + 10);
+}
+
 function project(ra, dec, rect) {
   if (state.skyView === "all") return [rect.x + rect.w * (1 - ra / 24), rect.y + rect.h * (0.5 - dec / 180)];
   const fromPole = state.skyView === "north" ? 90 - dec : 90 + dec;
@@ -382,7 +445,7 @@ function drawSolar() {
 
 /* ------------------------------------------------------------ interface */
 function markChips() {
-  document.querySelectorAll(".chip").forEach((chip) => chip.setAttribute("aria-pressed", String(chip.dataset.key === state.selected)));
+  document.querySelectorAll(".chip[data-key]").forEach((chip) => chip.setAttribute("aria-pressed", String(chip.dataset.key === state.selected)));
 }
 
 function canvasPoint(canvas, event) {
@@ -446,6 +509,10 @@ function buildInterface() {
     if (state.ctx) { if (state.playing) state.ctx.resume(); else state.ctx.suspend(); }
   });
   $("btn-mic").addEventListener("click", toggleMic);
+  document.querySelectorAll(".mode").forEach((button) => button.addEventListener("click", () => {
+    state.specMode = button.dataset.mode; state.history = null;
+    document.querySelectorAll(".mode").forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+  }));
   $("download").href = DOWNLOAD_URL;
 }
 
@@ -459,7 +526,8 @@ function loop(now) {
   const src = state.source;
   if (src && state.ctx) {
     const frame = currentFrame(), result = analyse(frame, src.fs);
-    drawWave(frame, src.fs); drawSpectrum(result, src.viewHz);
+    drawWave(frame, src.fs);
+    if (state.specMode === "bands") drawBands(result); else if (state.specMode === "time") drawSpectrogram(result, src.viewHz); else drawSpectrum(result, src.viewHz);
     const loud = result.peakDb > -70;
     $("r-freq").textContent = loud ? formatHz(result.peakHz) : "-";
     $("r-level").textContent = `${result.peakDb.toFixed(1)} dB`;
@@ -480,6 +548,8 @@ if (typeof document !== "undefined") {
     buildInterface();
     // Browsers only start sound after a tap or click: wake the audio on the first one.
     document.addEventListener("pointerdown", () => { if (state.ctx && state.playing && state.ctx.state === "suspended") state.ctx.resume(); });
+    const mode = document.querySelector(`.mode[data-mode="${new URLSearchParams(location.search).get("mode")}"]`);
+    if (mode) mode.click();                                                // .../?mode=bands or ?mode=time
     const wanted = decodeURIComponent(location.hash.slice(1));          // link straight to an object: .../#crab
     if (state.byKey[wanted]) {
       if (state.byKey[wanted].kind === "planet" || wanted === "sun") document.querySelector('.tab[data-view="solar"]').click();

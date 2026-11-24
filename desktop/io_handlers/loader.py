@@ -316,6 +316,12 @@ def load_signal(path: str | os.PathLike, sample_rate: float | None = None, chann
 
 
 # ------------------------------------------------------------------ generator
+GENERATOR_MODES = ("tones", "white", "pink")
+# Pinking filter (white -> pink, about -3 dB per octave from 10 Hz up); coefficients after J. O. Smith.
+_PINK_B = np.array([0.049922035, -0.095993537, 0.050612699, -0.004408786])
+_PINK_A = np.array([1.0, -2.494956002, 2.017265875, -0.522189400])
+
+
 class SyntheticGenerator:
     """Phase-continuous multi-tone + Gaussian noise generator.
 
@@ -326,7 +332,7 @@ class SyntheticGenerator:
     def __init__(
         self,
         sample_rate: float = 48000.0,
-        tones: Sequence[tuple[float, float]] = ((440.0, 0.5), (1200.0, 0.25)),
+        tones: Sequence[tuple[float, float]] = ((440.0, 0.5), (1200.0, 0.25), (2500.0, 0.0)),
         noise_std: float = 0.01,
         seed: int | None = None,
     ) -> None:
@@ -335,6 +341,8 @@ class SyntheticGenerator:
         self.sample_rate = float(sample_rate)
         self.noise_std = float(noise_std)
         self.name = "Live generator"
+        self.mode = "tones"                           # "tones", "white" or "pink"
+        self._pink_state = np.zeros(3)
         self._rng = np.random.default_rng(seed)
         self._freqs = np.zeros(0)
         self._amps = np.zeros(0)
@@ -362,11 +370,30 @@ class SyntheticGenerator:
     def reset(self) -> None:
         self._phases[:] = 0.0
 
+    def set_mode(self, mode: str) -> None:
+        """"tones" (multi-tone + noise), "white" (white noise) or "pink" (pink noise, -3 dB per octave)."""
+        if mode not in GENERATOR_MODES:
+            raise ValueError(f"Unknown generator mode {mode!r}; choose one of {GENERATOR_MODES}")
+        self.mode = mode
+        self._pink_state = np.zeros(3)
+
+    def _noise(self, n: int) -> np.ndarray:
+        """Full-band test noise at about -20 dBFS RMS."""
+        white = self._rng.standard_normal(n)
+        if self.mode == "white":
+            return 0.1 * white
+        from scipy.signal import lfilter
+
+        pink, self._pink_state = lfilter(_PINK_B, _PINK_A, white, zi=self._pink_state)
+        return 1.2 * pink                             # the pinking filter attenuates; bring it back to about -20 dBFS
+
     def generate(self, n: int) -> np.ndarray:
         """Return the next ``n`` samples as float32."""
         n = int(n)
         if n <= 0:
             return np.zeros(0, dtype=np.float32)
+        if self.mode != "tones":
+            return self._noise(n).astype(np.float32)
         out = np.zeros(n, dtype=np.float64)
         if self._freqs.size:
             step = 2.0 * np.pi * self._freqs / self.sample_rate          # radians per sample

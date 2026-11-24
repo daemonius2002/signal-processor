@@ -74,6 +74,11 @@
     </div>
     <div class="pane">
       <div class="pane-head"><strong>Spectru: ce frecvențe sunt în sunet</strong><span id="spec-info"></span></div>
+      <div class="modes" role="group" aria-label="Fel de afișare">
+        <button class="chip mode" type="button" data-mode="line" aria-pressed="true">Linie</button>
+        <button class="chip mode" type="button" data-mode="bands" aria-pressed="false">Benzi cu LED-uri</button>
+        <button class="chip mode" type="button" data-mode="time" aria-pressed="false">Spectrogramă (în timp)</button>
+      </div>
       <canvas id="spec" class="plot tall"></canvas>
     </div>
     <div class="readouts">

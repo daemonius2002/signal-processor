@@ -5,7 +5,7 @@ Two versions of the same idea: see what a sound is made of.
 | Folder | What it is |
 |---|---|
 | `web/` | **Web version** (Romanian, for children): sky map with pulsars and stars, the Solar System, a sound kit and a live microphone view, with waveform and spectrum. Plain HTML + JavaScript, no build step. |
-| `desktop/` | **Desktop application** v1.3.0 (Python 3.11+, PyQt6): the full real-time analyser with filters, metrics and latency monitor, plus the same sky, planets and sound panels. See `desktop/docs/USER_GUIDE.md`. |
+| `desktop/` | **Desktop application** v1.4.0 (Python 3.11+, PyQt6): the full real-time analyser with filters, metrics, latency monitor, LED third-octave bands, spectrogram, room-response measurement, plus the same sky, planets and sound panels. See `desktop/docs/USER_GUIDE.md`. |
 | `tools/export_web.py` | Regenerates `web/data` from the desktop modules. |
 | `server.js` | Tiny static server for `web/` (no dependencies). |
 

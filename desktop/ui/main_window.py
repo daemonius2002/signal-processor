@@ -33,12 +33,23 @@ from PyQt6.QtWidgets import (
     QSlider,
     QSpinBox,
     QSplitter,
+    QStackedWidget,
     QToolBar,
     QVBoxLayout,
     QWidget,
 )
 
-from dsp import FFT_SIZES, FILTER_TYPES, SCALES, WINDOW_FUNCTIONS, DSPConfig, FrameResult, SignalProcessor, __version__
+from dsp import (
+    FFT_SIZES,
+    FILTER_TYPES,
+    SCALES,
+    WINDOW_FUNCTIONS,
+    DSPConfig,
+    FrameResult,
+    SignalProcessor,
+    __version__,
+    third_octave_levels,
+)
 from io_handlers import sky_catalog
 from io_handlers import (
     SampleRateRequiredError,
@@ -50,6 +61,8 @@ from io_handlers import (
 )
 
 from .audio import AudioPlayer, MicrophoneInput
+from .lab_panels import AcousticsPanel, WavesPanel, noise_buffer, tone_buffer
+from .views import LedBandsView, SpectrogramView
 from .sky_panel import SkyPanel
 from .solar_panel import SolarPanel
 from .sound_panel import SoundKitPanel
@@ -62,7 +75,7 @@ LATENCY_WINDOW = 120                 # frames used for the average / worst-case 
 WARMUP_FRAMES = 30                   # first frames (window creation, first paints) are not rated
 FILTER_CURVE_POINTS = 400
 SIDEBAR_WIDTH = 300
-LAYOUT_VERSION = 3                   # bump when docks change, so an old saved layout is ignored
+LAYOUT_VERSION = 4                   # bump when docks change, so an old saved layout is ignored
 
 # Palette: a bench instrument at night. Two trace colours carry meaning everywhere:
 # teal = time domain / DSP, amber = frequency domain / rendering.
@@ -216,6 +229,9 @@ QTreeWidget {{ background: {COLOR_PANEL}; border: 1px solid {COLOR_BORDER}; bord
 QTreeWidget::item {{ padding: 3px 4px; border-radius: 4px; }}
 QTreeWidget::item:hover {{ background: {COLOR_RAISED}; }}
 QTreeWidget::item:selected {{ background: #1f4d55; color: {COLOR_TEXT}; }}
+QPushButton {{ background: {COLOR_RAISED}; border: 1px solid {COLOR_BORDER}; border-radius: 6px; padding: 6px 10px; }}
+QPushButton:hover {{ border-color: {COLOR_FAINT}; }}
+QPushButton:pressed {{ background: {COLOR_BORDER}; }}
 QLabel#skyName {{ font-size: 17px; font-weight: 600; }}
 QLabel#skyFacts {{ color: {COLOR_MUTED}; font-size: 12px; }}
 QLabel#skyStory {{ font-size: 14px; }}
@@ -283,6 +299,13 @@ def _make_icon(kind: str, color: str = COLOR_TEXT) -> QIcon:
     elif kind == "speaker":
         path.moveTo(3, 7); path.lineTo(6, 7); path.lineTo(10, 3.5); path.lineTo(10, 14.5); path.lineTo(6, 11); path.lineTo(3, 11); path.closeSubpath()
         path.moveTo(12.5, 6.5); path.cubicTo(14.5, 8, 14.5, 10, 12.5, 11.5)
+    elif kind == "waves":
+        path.moveTo(1.5, 6); path.cubicTo(3.5, 1.5, 5.5, 10.5, 7.5, 6); path.cubicTo(9.5, 1.5, 11.5, 10.5, 13.5, 6); path.lineTo(16.5, 6)
+        path.moveTo(1.5, 13); path.cubicTo(5, 8, 8, 18, 11, 13); path.cubicTo(13, 10, 15, 12, 16.5, 13)
+    elif kind == "room":                    # a loudspeaker in a room
+        path.addRoundedRect(QRectF(2, 2.5, 14, 13), 1.5, 1.5)
+        path.addEllipse(QPointF(9, 10.5), 3, 3)
+        path.addEllipse(QPointF(9, 5.5), 1, 1)
     elif kind == "export":                  # arrow leaving a tray
         path.moveTo(9, 11); path.lineTo(9, 2.5)
         path.moveTo(5.5, 6); path.lineTo(9, 2.5); path.lineTo(12.5, 6)
@@ -399,7 +422,7 @@ class ReadoutStrip(QFrame):
     optional: list[QWidget] = []
 
     def resizeEvent(self, event) -> None:  # noqa: N802 (Qt naming)
-        roomy = event.size().width() >= 1010
+        roomy = event.size().width() >= 940
         for widget in self.optional:
             widget.setVisible(roomy)
         super().resizeEvent(event)
@@ -559,6 +582,8 @@ class MainWindow(QMainWindow):
         self._loop_audio: np.ndarray | None = None   # what the loudspeakers play for the current source
         self.audio = AudioPlayer(self)
         self.microphone = MicrophoneInput(self)
+        self.view_mode = "spectrum"                  # "spectrum", "bands" or "spectrogram"
+        self._measuring = False                      # room measurement running (Acustică panel)
         self._frames_seen = 0
 
         self._build_toolbar()
@@ -648,7 +673,13 @@ class MainWindow(QMainWindow):
         bar.addSeparator()
         bar.addAction(self.act_export)
 
-        bar.addSeparator()
+        self.addToolBarBreak()
+        bar = QToolBar("Panouri")                          # second row: the movable panels and the sound
+        bar.setMovable(False)
+        bar.setIconSize(QSize(18, 18))
+        bar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        bar.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
+        self.addToolBar(bar)
         self._panel_bar = bar                              # panel buttons are added in _build_central
         self._panel_anchor = bar.addSeparator()
         bar.addAction(self.act_sound)
@@ -704,12 +735,24 @@ class MainWindow(QMainWindow):
                                          "Sistemul Solar: fiecare planetă are nota ei")
         self.dock_kit = self._add_dock("Sunete", "kit", "sounds", self.kit_panel, "Ctrl+4",
                                        "Kit de sunete: tonuri, instrumente, muzică, voce, natură")
-        self._learning_docks = (self.dock_sky, self.dock_solar, self.dock_kit)
-        self.tabifyDockWidget(self.dock_sky, self.dock_solar)
-        self.tabifyDockWidget(self.dock_solar, self.dock_kit)
+        self.waves_panel = WavesPanel(self.generator.tones, 0.5 * GENERATOR_SAMPLE_RATE)
+        self.waves_panel.tones_changed.connect(self._on_waves_changed)
+        self.acoustics_panel = AcousticsPanel()
+        self.acoustics_panel.start_requested.connect(self._on_measure_start)
+        self.acoustics_panel.stop_requested.connect(self._on_measure_stop)
+        self.dock_waves = self._add_dock("Unde", "waves", "waves", self.waves_panel, "Ctrl+5",
+                                         "Trei unde simple se adună într-una complexă (Fourier)")
+        self.dock_acoustics = self._add_dock("Acustică", "acoustics", "room", self.acoustics_panel, "Ctrl+6",
+                                             "Măsoară răspunsul camerei cu zgomot roz și microfon")
+        self._learning_docks = (self.dock_sky, self.dock_solar, self.dock_kit, self.dock_waves, self.dock_acoustics)
+        self._tabify_learning_docks()
         for dock in self._learning_docks:
             dock.hide()
             dock.visibilityChanged.connect(lambda visible, d=dock: self._on_learning_dock(d, visible))
+
+    def _tabify_learning_docks(self) -> None:
+        for first, second in zip(self._learning_docks, self._learning_docks[1:]):
+            self.tabifyDockWidget(first, second)
 
     def _add_dock(self, title: str, name: str, icon: str, widget: QWidget, shortcut: str, tip: str) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -729,6 +772,12 @@ class MainWindow(QMainWindow):
         """Opening a wide learning panel docked in the window makes room by hiding the controls."""
         if visible and not dock.isFloating() and not self.dock_controls.isFloating() and not self._restoring:
             self.dock_controls.hide()
+        if visible and dock is self.dock_waves and not self._restoring:       # the waves are the generator's tones
+            with QSignalBlocker(self.cmb_gen_mode):
+                self.cmb_gen_mode.setCurrentIndex(0)
+            self.generator.set_mode("tones")
+            if not self.stream.is_live or isinstance(self.stream.source, MicrophoneInput):
+                self._set_source(self.generator)
         self._restart_latency_stats()
 
     def _restore_layout(self) -> None:
@@ -752,8 +801,7 @@ class MainWindow(QMainWindow):
         for dock in (self.dock_controls, *self._learning_docks):
             dock.setFloating(False)
             self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
-        self.tabifyDockWidget(self.dock_sky, self.dock_solar)
-        self.tabifyDockWidget(self.dock_solar, self.dock_kit)
+        self._tabify_learning_docks()
         for dock in self._learning_docks:
             dock.hide()
         self.dock_controls.show()
@@ -797,8 +845,14 @@ class MainWindow(QMainWindow):
         self.spn_fps.setValue(60)
         self.spn_fps.setSuffix(" fps")
         self.spn_fps.valueChanged.connect(lambda _: self._apply_frame_rate())
+        self.cmb_view = QComboBox()
+        self.cmb_view.addItem("Spectrum (line)", "spectrum")
+        self.cmb_view.addItem("1/3-octave LED bands", "bands")
+        self.cmb_view.addItem("Spectrogram", "spectrogram")
+        self.cmb_view.setToolTip("Line spectrum, 28 third-octave bands as LED columns,\nor the spectrogram: frequency across, time down, level as colour")
+        self.cmb_view.currentIndexChanged.connect(self._on_view_changed)
         for row, (text, widget) in enumerate((
-            ("FFT size", self.cmb_fft), ("Window", self.cmb_window), ("Spectrum", self.cmb_kind),
+            ("FFT size", self.cmb_fft), ("Window", self.cmb_window), ("View", self.cmb_view), ("Spectrum", self.cmb_kind),
             ("Scale", self.cmb_scale), ("Frame rate", self.spn_fps),
         )):
             grid.addWidget(QLabel(text), row, 0)
@@ -906,6 +960,18 @@ class MainWindow(QMainWindow):
         row = len(self.spn_tone_freq) + 1
         grid.addWidget(QLabel("Noise"), row, 0)
         grid.addWidget(self.spn_noise, row, 2)
+        self.cmb_gen_mode = QComboBox()
+        self.cmb_gen_mode.addItem("Tones + noise", "tones")
+        self.cmb_gen_mode.addItem("White noise", "white")
+        self.cmb_gen_mode.addItem("Pink noise", "pink")
+        self.cmb_gen_mode.setToolTip("White noise: the same power at every frequency.\nPink noise: 3 dB less per octave, the same power in every octave band.")
+        self.cmb_gen_mode.currentIndexChanged.connect(lambda _: self._on_generator_changed())
+        grid.addWidget(QLabel("Signal"), row + 1, 0)
+        grid.addWidget(self.cmb_gen_mode, row + 1, 1, 1, 2)
+        self.chk_gen_audible = QCheckBox("Play it on the loudspeakers")
+        self.chk_gen_audible.setEnabled(self.audio.available)
+        self.chk_gen_audible.toggled.connect(lambda _: self._on_generator_changed())
+        grid.addWidget(self.chk_gen_audible, row + 2, 0, 1, 3)
         layout.addWidget(self.box_generator)
 
         layout.addStretch(1)
@@ -925,7 +991,7 @@ class MainWindow(QMainWindow):
         slider.setRange(0, 1000)
         return spin, slider
 
-    def _make_pane(self, title: str, plot: pg.PlotWidget, extra: QWidget | None = None) -> tuple[QFrame, QLabel]:
+    def _make_pane(self, title: str, plot: QWidget, extra: QWidget | None = None) -> tuple[QFrame, QLabel]:
         """A titled frame around a plot; returns it with its right-hand info label."""
         pane = QFrame()
         pane.setObjectName("pane")
@@ -1020,7 +1086,12 @@ class MainWindow(QMainWindow):
         self._cache_axes(self.time_plot)
         self._cache_axes(self.spec_plot)
         self._mouse_proxy = pg.SignalProxy(self.spec_plot.scene().sigMouseMoved, rateLimit=60, slot=self._on_mouse_moved)
-        spec_pane, self.lbl_readout = self._make_pane("Spectrum", self.spec_plot)
+        self.led_view = LedBandsView()
+        self.spectro_view = SpectrogramView()
+        self.spec_stack = QStackedWidget()
+        for view in (self.spec_plot, self.led_view, self.spectro_view):
+            self.spec_stack.addWidget(view)
+        spec_pane, self.lbl_readout = self._make_pane("Spectrum", self.spec_stack)
 
         splitter = QSplitter(Qt.Orientation.Vertical)
         splitter.setChildrenCollapsible(False)
@@ -1125,14 +1196,17 @@ class MainWindow(QMainWindow):
         self._kit_entry = kit_entry
         if sky_object is None and kit_entry is None:       # an ordinary source: nothing to play back
             self._view_fmax = 6000.0 if mic else None
-            self._loop_audio = None
-            self.audio.stop()
+            if not self._measuring:
+                self._loop_audio = None
+                self.audio.stop()
         if sky_object is None or sky_object.kind == "planet" or sky_object.key == "sun":
             self.sky_panel.clear_selection()
         if sky_object is None or not (sky_object.kind == "planet" or sky_object.key == "sun"):
             self.solar_panel.clear_selection()
         if kit_entry is None:
             self.kit_panel.clear_selection()
+        if self._measuring and not mic:
+            self._on_measure_stop()
         if not mic and self.act_mic.isChecked():           # leaving the microphone
             with QSignalBlocker(self.act_mic):
                 self.act_mic.setChecked(False)
@@ -1227,6 +1301,10 @@ class MainWindow(QMainWindow):
         self.spec_plot.setXRange(0.0, min(self._view_fmax or self.processor.nyquist, self.processor.nyquist), padding=0.0)
         self._time_top = 0.0
         self._spec_top = None
+        top_hz = min(self._view_fmax or self.processor.nyquist, self.processor.nyquist, 20000.0)
+        low_hz = 20.0 if top_hz >= 2000.0 else max(2.0 * fs / n, top_hz / 200.0)
+        self.spectro_view.set_range(low_hz, top_hz)
+        self.led_view.reset()
         span = n / fs
         window = f"{span * 1e3:.1f} ms" if span < 1.0 else f"{span:.2f} s"
         self.lbl_time_info.setText(f"{window} window, {fs / n:.3g} Hz per FFT bin")
@@ -1366,6 +1444,72 @@ class MainWindow(QMainWindow):
         tones = [(f.value(), a.value()) for f, a in zip(self.spn_tone_freq, self.spn_tone_amp)]
         self.generator.set_tones(tones)
         self.generator.set_noise(self.spn_noise.value())
+        mode = self.cmb_gen_mode.currentData()
+        if mode != self.generator.mode:
+            self.generator.set_mode(mode)
+        for widget in (*self.spn_tone_freq, *self.spn_tone_amp, self.spn_noise):
+            widget.setEnabled(mode == "tones")
+        self.waves_panel.set_tones(tones)
+        self._update_generator_audio()
+
+    def _update_generator_audio(self) -> None:
+        """Loudspeaker version of the live generator (only when its check box is ticked)."""
+        if not self.stream.is_live or isinstance(self.stream.source, MicrophoneInput) or self._measuring:
+            return
+        if self.chk_gen_audible.isChecked():
+            mode = self.generator.mode
+            self._loop_audio = tone_buffer(self.generator.tones) if mode == "tones" else noise_buffer(mode)
+        else:
+            self._loop_audio = None
+        self._apply_audio()
+
+    def _on_waves_changed(self, tones: list) -> None:
+        """The Unde panel drives the generator through the Controls spin boxes."""
+        for (freq, amp), f_box, a_box in zip(tones, self.spn_tone_freq, self.spn_tone_amp):
+            for box, value in ((f_box, freq), (a_box, amp)):
+                with QSignalBlocker(box):
+                    box.setValue(value)
+        self.generator.set_tones([(f.value(), a.value()) for f, a in zip(self.spn_tone_freq, self.spn_tone_amp)])
+        self._update_generator_audio()
+
+    # ------------------------------------------------------- views, acoustics
+    def _on_view_changed(self, _index: int) -> None:
+        self.view_mode = self.cmb_view.currentData()
+        self.spec_stack.setCurrentIndex(("spectrum", "bands", "spectrogram").index(self.view_mode))
+        self.led_view.reset()
+        self.spectro_view.clear()
+        self._cursor = None
+        self._update_readout()
+        self._restart_latency_stats()
+        if not self.playing:
+            self._refresh()
+
+    def _on_measure_start(self, color: str) -> None:
+        if not self.audio.available:
+            self.acoustics_panel.set_running(False, f"fără sunet: {self.audio.error}")
+            return
+        if not self.act_mic.isChecked():
+            self.act_mic.setChecked(True)                  # switches the analyser to the microphone
+        if not self.act_mic.isChecked():
+            self.acoustics_panel.set_running(False, "microfonul nu a pornit")
+            return
+        if self.processor.config.fft_size < 8192:          # the lowest bands need a long frame
+            self.cmb_fft.setCurrentIndex(FFT_SIZES.index(8192))
+        self.cmb_view.setCurrentIndex(1)
+        self._measuring = True
+        self._loop_audio = noise_buffer(color)
+        if not self.act_sound.isChecked():
+            self.act_sound.setChecked(True)
+        if not self.playing:
+            self._on_play_pause()
+        self._apply_audio()
+        self.acoustics_panel.set_running(True)
+
+    def _on_measure_stop(self) -> None:
+        self._measuring = False
+        self._loop_audio = None
+        self.audio.stop()
+        self.acoustics_panel.set_running(False)
 
     def _on_kind_changed(self, kind: str) -> None:
         self.spectrum_kind = kind
@@ -1505,7 +1649,8 @@ class MainWindow(QMainWindow):
         self._tick_times.append(now)
 
         # Paint events of the previous frame have run by now: collect their real duration.
-        paint_ms = self.time_plot.take_paint_ms() + self.spec_plot.take_paint_ms()
+        paint_ms = (self.time_plot.take_paint_ms() + self.spec_plot.take_paint_ms()
+                    + self.led_view.take_paint_ms() + self.spectro_view.take_paint_ms())
         if self._dsp_hist:
             self._render_hist.append(self._update_ms_prev + paint_ms)
 
@@ -1547,6 +1692,16 @@ class MainWindow(QMainWindow):
         y = result.display_psd() if self.spectrum_kind == "PSD" else result.display_magnitude()
         self._spec_y = y
         self.time_curve.setData(self._time_x, frame)
+        if self.view_mode != "spectrum" or self._measuring:
+            levels = third_octave_levels(result.psd, result.sample_rate) if (self.view_mode == "bands" or self._measuring) else None
+            if self._measuring:
+                self.acoustics_panel.add_levels(levels)
+            if self.view_mode == "bands":
+                self.led_view.set_levels(levels)
+            elif self.view_mode == "spectrogram":
+                self.spectro_view.add_spectrum(result.frequencies, result.magnitude_db)
+            if self.view_mode != "spectrum":
+                return
         self.spec_curve.setData(result.frequencies, y)
 
         # Y ranges are managed by hand (auto-range would re-scan the data every frame).
@@ -1642,6 +1797,12 @@ class MainWindow(QMainWindow):
     def _update_readout(self) -> None:
         result = self._result
         if self._cursor is None or result is None or self._spec_y is None:
+            if self.view_mode == "bands":
+                self.lbl_readout.setText("28 third-octave bands, 31.5 Hz - 16 kHz, 3 dB per LED, peak hold")
+                return
+            if self.view_mode == "spectrogram":
+                self.lbl_readout.setText("frequency across (log), time down, colour = level (-110 ... -10 dBFS)")
+                return
             hint = "Hover for a read-out"
             if self.processor.config.filter_type != "Bypass":
                 hint += ", drag the teal line to move the cutoff"

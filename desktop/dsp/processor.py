@@ -47,6 +47,37 @@ _RING_CAPACITY = 2 * max(FFT_SIZES)
 _ZERO_PHASE_HISTORY = 1024   # extra past samples filtered with each zero-phase frame
 
 
+# Nominal centre frequencies of the 28 third-octave bands from 31.5 Hz to 16 kHz
+# (the range of classic LED real-time analysers).
+THIRD_OCTAVE_CENTRES: tuple[float, ...] = (
+    31.5, 40.0, 50.0, 63.0, 80.0, 100.0, 125.0, 160.0, 200.0, 250.0, 315.0, 400.0, 500.0, 630.0, 800.0,
+    1000.0, 1250.0, 1600.0, 2000.0, 2500.0, 3150.0, 4000.0, 5000.0, 6300.0, 8000.0, 10000.0, 12500.0, 16000.0,
+)
+
+
+def third_octave_levels(psd: np.ndarray, sample_rate: float, floor_db: float = -120.0) -> np.ndarray:
+    """Level of each third-octave band in dBFS (RMS), from a single-sided PSD.
+
+    The power in a band is the PSD integrated between the band edges
+    ``fc * 2**(-1/6)`` and ``fc * 2**(1/6)``; bins that straddle an edge count
+    in proportion, so low bands narrower than one FFT bin still get a value.
+    Bands that reach beyond the Nyquist frequency are returned as NaN.
+    Pink noise reads the same level in every band; white noise rises 1 dB per band.
+    """
+    n_bins = psd.size
+    df = sample_rate / (2.0 * (n_bins - 1))
+    edges = np.arange(n_bins + 1) * df - 0.5 * df                  # each bin covers f +/- df/2
+    cumulative = np.concatenate(([0.0], np.cumsum(psd) * df))      # power below each edge
+    # A band holds mean-square = sum(PSD * df); the windowed PSD is normalised so this is the band power.
+    centres = np.asarray(THIRD_OCTAVE_CENTRES)
+    lo = np.interp(centres * 2.0 ** (-1.0 / 6.0), edges, cumulative)
+    hi = np.interp(centres * 2.0 ** (1.0 / 6.0), edges, cumulative)
+    power = np.maximum(hi - lo, 10.0 ** (floor_db / 10.0))
+    levels = 10.0 * np.log10(power)
+    levels[centres * 2.0 ** (1.0 / 6.0) > 0.5 * sample_rate] = np.nan
+    return levels
+
+
 @dataclass(frozen=True)
 class DSPConfig:
     """All user-selectable processing parameters."""

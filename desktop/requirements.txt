@@ -1,4 +1,4 @@
-# Signal Processor v1.3.0 - pinned dependencies (Python 3.11, 3.12 or 3.13)
+# Signal Processor v1.4.0 - pinned dependencies (Python 3.11, 3.12 or 3.13)
 # Install:  python -m pip install -r requirements.txt
 #
 # --- Runtime -----------------------------------------------------------------
