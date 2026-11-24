@@ -192,6 +192,8 @@ class SolarPanel(QWidget):
             self.lbl_date.setText(f"Data: {self.view.date():%d.%m.%Y}")
 
     def clear_selection(self) -> None:
+        if self.view._selected is not None:
+            self.info.reset()
         self.view.set_selected(None)
 
     def select(self, key: str) -> None:

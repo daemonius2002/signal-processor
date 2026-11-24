@@ -13,7 +13,7 @@ from .processor import (
     third_octave_levels,
 )
 
-__version__ = "1.4.0"
+__version__ = "1.4.1"
 
 __all__ = [
     "FFT_SIZES",

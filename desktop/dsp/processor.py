@@ -168,6 +168,8 @@ class SignalProcessor:
         self._filtered = np.zeros(_RING_CAPACITY, dtype=np.float64)
         self._sos: np.ndarray | None = None
         self._zi: np.ndarray | None = None
+        self._long_window: np.ndarray | None = None
+        self._long_scale = 0.0
         self._rebuild_tables()
         self._design_filter()
 
@@ -198,6 +200,7 @@ class SignalProcessor:
     def set_sample_rate(self, sample_rate: float) -> None:
         """Change the sample rate. Clears the stream buffer (old samples no longer apply)."""
         self._fs = self._check_fs(sample_rate)
+        self._long_window = None
         self._rebuild_tables()
         self._design_filter()
         self.reset()
@@ -380,6 +383,30 @@ class SignalProcessor:
             if y.size:
                 frame[-y.size:] = y
         return self._analyze_frame(frame, t0)
+
+    def band_levels(self, result: "FrameResult") -> np.ndarray:
+        """Third-octave levels for the LED view: bands below 500 Hz come from the whole
+        stream buffer (0.7 s at 48 kHz) instead of the analysis frame, so a 40 Hz tone
+        lights the 40 Hz band and not its neighbours as well."""
+        levels = third_octave_levels(result.psd, self._fs)
+        n = _RING_CAPACITY
+        if self._config.fft_size >= n:
+            return levels
+        if self._long_window is None:
+            self._long_window = sp_signal.get_window("hann", n, fftbins=True)
+            self._long_scale = 2.0 / (self._fs * float(np.sum(self._long_window ** 2)))
+        if self._sos is None:
+            data = self._raw
+        elif self._config.zero_phase:
+            data = self._zero_phase(self._raw)
+        else:
+            data = self._filtered
+        spectrum = sp_fft.rfft(data * self._long_window)
+        psd = (spectrum.real ** 2 + spectrum.imag ** 2) * self._long_scale
+        low = third_octave_levels(psd, self._fs)
+        mask = np.asarray(THIRD_OCTAVE_CENTRES) < 500.0
+        levels[mask] = low[mask]
+        return levels
 
     # ------------------------------------------------------------ FFT engine
     def _analyze_frame(self, frame: np.ndarray, t0: float) -> FrameResult:

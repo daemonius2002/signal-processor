@@ -1,4 +1,4 @@
-# Signal Processor v1.4.0 - Developer Notes
+# Signal Processor v1.4.1 - Developer Notes
 
 ## 1. Layout
 
@@ -10,7 +10,7 @@ dsp/processor.py         DSPConfig, SignalProcessor, FrameResult, Metrics   (Num
 io_handlers/loader.py    load_wav, load_csv, SyntheticGenerator, StreamSimulator (no Qt)
 ui/main_window.py        MainWindow, TimedPlotWidget, Readout, LatencyMeter, export_metrics (PyQt6 + PyQtGraph)
 tests/generate_samples.py   writes the 440 Hz + 1200 Hz test WAV / CSV files
-tests/test_dsp.py        137 pytest cases
+tests/test_dsp.py        138 pytest cases
 docs/                    USER_GUIDE.md, DEVELOPER_NOTES.md
 ```
 
@@ -133,7 +133,7 @@ machine to get its own figures; the exit code is 0 when no frame exceeded the bu
 
 ```bash
 python tests/generate_samples.py     # optional: sample files for manual use
-python -m pytest -v                  # 137 tests, about 2 s
+python -m pytest -v                  # 138 tests, about 2 s
 ```
 
 Covered: frequency / amplitude accuracy per window and FFT size, coherent-gain compensation, DC
@@ -172,11 +172,11 @@ Notes
   apps must be opened once with right-click > Open, or signed with `codesign`.
 * Linux: the target machine needs `libxcb-cursor0` (Qt's xcb platform plugin).
 * Windows: SmartScreen may warn about an unsigned executable.
-* Build status of v1.4.0: the Linux build was produced and run (`--version`, `--benchmark` with a WAV
+* Build status of v1.4.1: the Linux build was produced and run (`--version`, `--benchmark` with a WAV
   file). The Windows and macOS builds use the same spec but were not run by the author of this
   version.
 
-## 7. User interface notes (v1.4.0)
+## 7. User interface notes (v1.4.1)
 
 * All colours are constants at the top of `ui/main_window.py`. Two of them carry meaning across the
   window: teal = time domain and DSP time, amber = frequency domain and render time.
@@ -188,7 +188,7 @@ Notes
 * The cutoff handles are `pg.InfiniteLine` items; dragging one sets the matching spin box, which runs
   the same code path as typing a value.
 
-## 8. Sky Map (v1.4.0)
+## 8. Sky Map (v1.4.1)
 
 * `io_handlers/sky_catalog.py` - the catalogue (`SKY_OBJECTS`), bright stars and constellation lines
   for the map, and the synthesis: `analysis_signal(obj)` (sample rate chosen per object so its
@@ -203,9 +203,9 @@ Notes
   of the frame-time figures.
 * `tests/generate_sky_samples.py` writes the WAV files, the catalogue and the map picture.
 
-## 9. Windows installer (v1.4.0)
+## 9. Windows installer (v1.4.1)
 
-`SignalProcessor_Setup_v1.4.0.exe` was assembled on Linux, not with PyInstaller: a conda-forge
+`SignalProcessor_Setup_v1.4.1.exe` was assembled on Linux, not with PyInstaller: a conda-forge
 CPython 3.13 for Windows, the pinned `win_amd64` wheels unpacked into its `site-packages`, the
 application sources, and an NSIS script (installs per user under
 `%LOCALAPPDATA%\Programs\SignalProcessor`, no administrator rights). Unused Qt modules (QML, Quick,

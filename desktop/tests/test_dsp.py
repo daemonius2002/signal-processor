@@ -576,3 +576,16 @@ def test_room_deviation_and_test_signals():
         assert noise.dtype == np.float32 and float(np.sqrt(np.mean(noise.astype(float) ** 2))) == pytest.approx(0.1, rel=0.05)
     loop = tone_buffer([(440.4, 0.5), (1200.0, 0.25)])
     assert loop.size == 44100 and abs(float(loop[0])) < 1e-6                                    # whole periods: seamless loop
+
+
+def test_led_bands_resolve_low_tones_at_short_fft():
+    """A 40 Hz tone must light the 40 Hz band only, even at FFT 4096 (bin width 11.7 Hz)."""
+    from dsp import THIRD_OCTAVE_CENTRES
+
+    fs = 48000.0
+    proc = SignalProcessor(fs, DSPConfig(fft_size=4096))
+    proc.push(sine(40.0, 40000, fs=fs, amp=1.0))
+    levels = proc.band_levels(proc.analyze())
+    band = THIRD_OCTAVE_CENTRES.index(40.0)
+    assert levels[band] == pytest.approx(-3.01, abs=0.3)
+    assert levels[band - 1] < levels[band] - 30.0 and levels[band + 1] < levels[band] - 30.0

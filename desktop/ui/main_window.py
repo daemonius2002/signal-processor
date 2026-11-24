@@ -48,7 +48,6 @@ from dsp import (
     FrameResult,
     SignalProcessor,
     __version__,
-    third_octave_levels,
 )
 from io_handlers import sky_catalog
 from io_handlers import (
@@ -584,6 +583,7 @@ class MainWindow(QMainWindow):
         self.microphone = MicrophoneInput(self)
         self.view_mode = "spectrum"                  # "spectrum", "bands" or "spectrogram"
         self._measuring = False                      # room measurement running (Acustică panel)
+        self._mic_quiet_since: float | None = None
         self._frames_seen = 0
 
         self._build_toolbar()
@@ -761,12 +761,31 @@ class MainWindow(QMainWindow):
         dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | QDockWidget.DockWidgetFeature.DockWidgetFloatable
                          | QDockWidget.DockWidgetFeature.DockWidgetClosable)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
-        action = dock.toggleViewAction()
-        action.setIcon(self._two_state_icon(icon))
+        # Not dock.toggleViewAction(): for a panel stacked behind another one as a tab that action
+        # only adds the tab and leaves the old panel in front, so the button seemed to do nothing.
+        action = QAction(self._two_state_icon(icon), title, self)
+        action.setCheckable(True)
         action.setShortcut(QKeySequence(shortcut))
         action.setToolTip(f"{tip} ({shortcut}). Trage de titlul panoului ca să-l muți.")
+        action.triggered.connect(lambda _checked, d=dock: self._show_panel(d))
+        dock.visibilityChanged.connect(lambda _visible, d=dock, a=action: a.setChecked(self._panel_in_front(d)))
         self._panel_bar.insertAction(self._panel_anchor, action)
         return dock
+
+    @staticmethod
+    def _panel_in_front(dock: QDockWidget) -> bool:
+        """True if the panel is shown and not hidden behind another tab."""
+        return dock.isVisible() and not dock.visibleRegion().isEmpty()
+
+    def _show_panel(self, dock: QDockWidget) -> None:
+        """Toolbar button: bring the panel to the front, or close it if it already is in front."""
+        if self._panel_in_front(dock):
+            dock.hide()
+        else:
+            dock.show()
+            dock.raise_()
+            if dock.isFloating():
+                dock.activateWindow()
 
     def _on_learning_dock(self, dock: QDockWidget, visible: bool) -> None:
         """Opening a wide learning panel docked in the window makes room by hiding the controls."""
@@ -973,6 +992,25 @@ class MainWindow(QMainWindow):
         self.chk_gen_audible.toggled.connect(lambda _: self._on_generator_changed())
         grid.addWidget(self.chk_gen_audible, row + 2, 0, 1, 3)
         layout.addWidget(self.box_generator)
+
+        # --- microphone
+        box = QGroupBox("Microphone")
+        grid = self._grid(box)
+        self.cmb_mic = QComboBox()
+        names = MicrophoneInput.devices()
+        if names:
+            self.cmb_mic.addItems(names)
+        else:
+            self.cmb_mic.addItem("default")
+            self.cmb_mic.setEnabled(False)
+        self.cmb_mic.setToolTip("Input device used by the Microfon button (the first one is the Windows default)")
+        self.cmb_mic.currentIndexChanged.connect(lambda _: self._on_mic_device_changed())
+        self.lbl_mic_level = QLabel("off")
+        grid.addWidget(QLabel("Device"), 0, 0)
+        grid.addWidget(self.cmb_mic, 0, 1)
+        grid.addWidget(QLabel("Level"), 1, 0)
+        grid.addWidget(self.lbl_mic_level, 1, 1)
+        layout.addWidget(box)
 
         layout.addStretch(1)
         for widget in panel.findChildren((QComboBox, QSpinBox, QDoubleSpinBox)):
@@ -1414,13 +1452,20 @@ class MainWindow(QMainWindow):
         self._set_source(signal, kit_entry=entry)
         self._apply_audio()
 
+    def _on_mic_device_changed(self) -> None:
+        if self.act_mic.isChecked():                       # restart on the newly chosen device
+            self.act_mic.setChecked(False)
+            self.act_mic.setChecked(True)
+
     def _on_mic_toggled(self, checked: bool) -> None:
+        self._mic_quiet_since = None
         if not checked:
+            self.lbl_mic_level.setText("off")
             self.microphone.stop()
             if isinstance(self.stream.source, MicrophoneInput):
                 self._set_source(self.generator)
             return
-        if not self.microphone.start():
+        if not self.microphone.start(self.cmb_mic.currentText() if self.cmb_mic.isEnabled() else None):
             with QSignalBlocker(self.act_mic):
                 self.act_mic.setChecked(False)
             QMessageBox.information(self, "Microfon", f"Microfonul nu poate fi folosit.\n{self.microphone.error}")
@@ -1693,7 +1738,7 @@ class MainWindow(QMainWindow):
         self._spec_y = y
         self.time_curve.setData(self._time_x, frame)
         if self.view_mode != "spectrum" or self._measuring:
-            levels = third_octave_levels(result.psd, result.sample_rate) if (self.view_mode == "bands" or self._measuring) else None
+            levels = self.processor.band_levels(result) if (self.view_mode == "bands" or self._measuring) else None
             if self._measuring:
                 self.acoustics_panel.add_levels(levels)
             if self.view_mode == "bands":
@@ -1744,6 +1789,19 @@ class MainWindow(QMainWindow):
 
     def _update_texts(self, result: FrameResult) -> None:
         m = result.metrics
+        if isinstance(self.stream.source, MicrophoneInput):
+            now = time.perf_counter()
+            if m.rms_dbfs < -80.0:                         # digital silence: muted, wrong device or blocked by Windows
+                self._mic_quiet_since = self._mic_quiet_since or now
+            else:
+                self._mic_quiet_since = None
+            silent = self._mic_quiet_since is not None and now - self._mic_quiet_since > 2.0
+            self.lbl_mic_level.setText("no signal" if silent else f"{m.rms_dbfs:.0f} dBFS")
+            if silent:
+                self.lbl_status_source.setText(
+                    "Microfon: nu vine niciun semnal. Alege alt dispozitiv în Controls > Microphone sau verifică "
+                    "Windows Settings > Privacy & security > Microphone (acces pentru aplicații desktop)."
+                )
         self.card_freq.set_value(_format_frequency(m.dominant_frequency_hz), f"bin width {result.sample_rate / self.processor.config.fft_size:.3g} Hz")
         self.card_peak.set_value(f"{m.peak_magnitude_dbfs:.2f} dBFS", f"amplitude {m.peak_magnitude:.4f}")
         self.card_rms.set_value(f"{m.rms_dbfs:.2f} dBFS", f"amplitude {m.rms_amplitude:.4f}")

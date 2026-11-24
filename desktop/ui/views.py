@@ -7,7 +7,7 @@ import time
 
 import numpy as np
 from PyQt6.QtCore import QRectF, Qt
-from PyQt6.QtGui import QColor, QFont, QImage, QPainter, QPen
+from PyQt6.QtGui import QColor, QFont, QImage, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import QWidget
 
 from dsp import THIRD_OCTAVE_CENTRES
@@ -58,6 +58,9 @@ class LedBandsView(_TimedWidget):
         self._levels = np.full(len(THIRD_OCTAVE_CENTRES), np.nan)
         self._peaks = np.full(len(THIRD_OCTAVE_CENTRES), -200.0)
         self._last = time.perf_counter()
+        self._cache: tuple[QPixmap, QPixmap] | None = None
+        self._margins = (44.0, 20.0, 6.0)             # left, bottom, top
+        self._segments = int(round((self.TOP_DB - self.FLOOR_DB) / self.SEGMENT_DB))
 
     def set_levels(self, levels: np.ndarray) -> None:
         now = time.perf_counter()
@@ -70,42 +73,69 @@ class LedBandsView(_TimedWidget):
     def reset(self) -> None:
         self._peaks[:] = -200.0
 
-    def _paint(self, painter: QPainter) -> None:
+    def _render(self, lit: bool) -> QPixmap:
+        """The whole display with every LED off (plus scales) or every LED on; painted once per size."""
+        ratio = self.devicePixelRatioF()
         w, h = self.width(), self.height()
-        painter.fillRect(self.rect(), QColor(BG))
-        left, bottom, top = 44.0, 20.0, 6.0
+        pix = QPixmap(int(w * ratio), int(h * ratio))
+        pix.setDevicePixelRatio(ratio)
+        pix.fill(QColor(BG))
+        painter = QPainter(pix)
+        left, bottom, top = self._margins
         plot_h = h - bottom - top
-        segments = int(round((self.TOP_DB - self.FLOOR_DB) / self.SEGMENT_DB))
+        segments = self._segments
         seg_h = plot_h / segments
+        bands = len(THIRD_OCTAVE_CENTRES)
+        col_w = (w - left - 4.0) / bands
         font = QFont(self.font())
         font.setPixelSize(10)
         painter.setFont(font)
-        painter.setPen(QColor(TEXT))
-        for db in range(0, int(self.FLOOR_DB) - 1, -12):
-            y = top + plot_h * (self.TOP_DB - db) / (self.TOP_DB - self.FLOOR_DB)
-            painter.drawText(QRectF(0, y - 7, left - 6, 14), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, f"{db} dB")
-        bands = len(THIRD_OCTAVE_CENTRES)
-        col_w = (w - left - 4.0) / bands
+        if not lit:
+            painter.setPen(QColor(TEXT))
+            for db in range(0, int(self.FLOOR_DB) - 1, -12):
+                y = top + plot_h * (self.TOP_DB - db) / (self.TOP_DB - self.FLOOR_DB)
+                painter.drawText(QRectF(0, y - 7, left - 6, 14), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, f"{db} dB")
+            for i, centre in enumerate(THIRD_OCTAVE_CENTRES):
+                if i % 3 == 0 or col_w > 34:
+                    painter.drawText(QRectF(left + i * col_w - 10, h - bottom + 3, col_w + 20, 14), Qt.AlignmentFlag.AlignCenter, _band_label(centre))
         painter.setPen(Qt.PenStyle.NoPen)
-        off = QColor(LED_OFF)
         colors = [QColor(c) for c in LED_COLORS]
-        for i, centre in enumerate(THIRD_OCTAVE_CENTRES):
-            x = left + i * col_w
-            level = self._levels[i]
-            lit = 0 if math.isnan(level) else int(math.ceil((level - self.FLOOR_DB) / self.SEGMENT_DB))
-            peak = int(math.ceil((self._peaks[i] - self.FLOOR_DB) / self.SEGMENT_DB))
+        for i in range(bands):
             for s in range(segments):
-                y = top + plot_h - (s + 1) * seg_h
                 db_top = self.FLOOR_DB + (s + 1) * self.SEGMENT_DB
-                if s < lit or s == peak - 1:
-                    painter.setBrush(colors[2] if db_top > -6.0 else colors[1] if db_top > -18.0 else colors[0])
-                else:
-                    painter.setBrush(off)
-                painter.drawRect(QRectF(x + 1.5, y + 1.0, col_w - 3.0, seg_h - 2.0))
-        painter.setPen(QColor(TEXT))
-        for i, centre in enumerate(THIRD_OCTAVE_CENTRES):
-            if i % 3 == 0 or col_w > 34:
-                painter.drawText(QRectF(left + i * col_w - 10, h - bottom + 3, col_w + 20, 14), Qt.AlignmentFlag.AlignCenter, _band_label(centre))
+                painter.setBrush((colors[2] if db_top > -6.0 else colors[1] if db_top > -18.0 else colors[0]) if lit else QColor(LED_OFF))
+                painter.drawRect(QRectF(left + i * col_w + 1.5, top + plot_h - (s + 1) * seg_h + 1.0, col_w - 3.0, seg_h - 2.0))
+        painter.end()
+        return pix
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 (Qt naming)
+        self._cache = None
+        super().resizeEvent(event)
+
+    def _paint(self, painter: QPainter) -> None:
+        # Two pictures are kept (all LEDs off, all LEDs on); a frame only copies the lit part
+        # of each column from the second one - 2 blits per band instead of 670 rectangles.
+        if self._cache is None:
+            self._cache = (self._render(False), self._render(True))
+        off, on = self._cache
+        w, h = self.width(), self.height()
+        left, bottom, top = self._margins
+        plot_h = h - bottom - top
+        seg_h = plot_h / self._segments
+        col_w = (w - left - 4.0) / len(THIRD_OCTAVE_CENTRES)
+        ratio = on.devicePixelRatio()
+        painter.drawPixmap(0, 0, off)
+        for i in range(len(THIRD_OCTAVE_CENTRES)):
+            level = self._levels[i]
+            lit = 0 if math.isnan(level) else max(0, min(self._segments, int(math.ceil((level - self.FLOOR_DB) / self.SEGMENT_DB))))
+            x = left + i * col_w
+            if lit:
+                target = QRectF(x, top + plot_h - lit * seg_h, col_w, lit * seg_h)
+                painter.drawPixmap(target, on, QRectF(target.x() * ratio, target.y() * ratio, target.width() * ratio, target.height() * ratio))
+            peak = int(math.ceil((self._peaks[i] - self.FLOOR_DB) / self.SEGMENT_DB))
+            if lit < peak <= self._segments:
+                target = QRectF(x, top + plot_h - peak * seg_h, col_w, seg_h)
+                painter.drawPixmap(target, on, QRectF(target.x() * ratio, target.y() * ratio, target.width() * ratio, target.height() * ratio))
 
 
 def _colour_table() -> list[int]:

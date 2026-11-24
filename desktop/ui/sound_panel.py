@@ -85,6 +85,8 @@ class SoundKitPanel(QWidget):
         self.sound_selected.emit({**entry, "path": os.path.join(self.folder, entry["file"])})
 
     def clear_selection(self) -> None:
+        if self.tree.currentItem() is not None and self.folder is not None:
+            self.info.reset()
         self.tree.blockSignals(True)
         self.tree.setCurrentItem(None)
         self.tree.blockSignals(False)

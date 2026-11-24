@@ -48,6 +48,7 @@ class ObjectInfo(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
+        self._default = (title, hint)
         self.lbl_name = QLabel(title)
         self.lbl_name.setObjectName("skyName")
         self.lbl_name.setWordWrap(True)
@@ -61,6 +62,10 @@ class ObjectInfo(QWidget):
         layout.addWidget(self.lbl_name)
         layout.addWidget(self.lbl_facts)
         layout.addWidget(self.lbl_story, 1)
+
+    def reset(self) -> None:
+        """Back to the opening hint (nothing is selected any more)."""
+        self.show_text(self._default[0], self._default[1], "")
 
     def show_text(self, name: str, facts: str, story: str) -> None:
         self.lbl_name.setText(name)
@@ -389,6 +394,8 @@ class SkyPanel(QWidget):
 
     def clear_selection(self) -> None:
         """Forget the selected object (the user switched to another source)."""
+        if self.map._selected is not None:
+            self.info.reset()
         self.map.set_selected(None)
         self.list.blockSignals(True)
         self.list.setCurrentItem(None)

@@ -1,4 +1,4 @@
-# Signal Processor v1.4.0 - User Guide
+# Signal Processor v1.4.1 - User Guide
 
 Real-time frequency analysis of WAV files, CSV files and a built-in signal generator:
 FFT spectrum, PSD, Butterworth filters, numeric metrics and a live latency monitor.
@@ -166,7 +166,7 @@ Create the sample files first: `python tests/generate_samples.py` (writes to `te
 `Export Metrics` > choose JSON or CSV. The file holds the source, all settings, the five metrics and
 the latency statistics, with a time stamp and the application version.
 
-## 4a. Sky Map - listening to pulsars and stars (v1.4.0)
+## 4a. Sky Map - listening to pulsars and stars (v1.4.1)
 
 `Sky Map` (Ctrl+M) replaces the control sidebar with a map of the whole sky. Click a coloured dot, or
 a name in the list, and the analyser tunes to that object: the waveform shows its pulses, the
@@ -203,7 +203,7 @@ opened with `Load WAV`.
 Sound uses QtMultimedia, which is part of PyQt6. If no audio device is found, the **Sunet** box is
 greyed out and everything else still works.
 
-## 4b. Movable panels, planets, sound kit, microphone (v1.4.0)
+## 4b. Movable panels, planets, sound kit, microphone (v1.4.1)
 
 **Panels.** Controls, Cer (sky), Planete (Solar System) and Sunete (sound kit) are dockable panels,
 switched with the toolbar buttons or Ctrl+1 ... Ctrl+4. Drag a panel by its title to another edge of
@@ -233,7 +233,7 @@ ask for microphone permission (Settings > Privacy > Microphone).
 
 **Sunet** and the volume slider in the toolbar switch the loudspeakers for Cer, Planete and Sunete.
 
-## 4c. LED bands, spectrogram, noise, waves and room acoustics (v1.4.0)
+## 4c. LED bands, spectrogram, noise, waves and room acoustics (v1.4.1)
 
 **View** (Controls > Analysis) switches the lower pane between three displays:
 

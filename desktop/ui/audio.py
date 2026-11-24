@@ -155,13 +155,30 @@ class MicrophoneInput(QObject):
         self._channels = 1
         self._float = False
 
-    def start(self) -> bool:
-        """Open the default microphone. Returns False (and sets ``error``) if that is not possible."""
+    @staticmethod
+    def devices() -> list[str]:
+        """Names of the available input devices, the system default first."""
+        if _audio_blocked():
+            return []
+        try:
+            default = QMediaDevices.defaultAudioInput().description()
+            names = [d.description() for d in QMediaDevices.audioInputs()]
+        except Exception:
+            return []
+        return ([default] if default in names else []) + [n for n in names if n != default]
+
+    def start(self, device_name: str | None = None) -> bool:
+        """Open a microphone (the default one if no name is given). Returns False and sets ``error`` on failure."""
+        self.stop()
         self.error = _audio_blocked()                 # a failed earlier attempt may succeed now
         if self.error:
             return False
         try:
             device = QMediaDevices.defaultAudioInput()
+            for candidate in QMediaDevices.audioInputs():
+                if device_name and candidate.description() == device_name:
+                    device = candidate
+            self.name = f"Microfon ({device.description()})" if not device.isNull() else "Microfon"
             if device.isNull():
                 self.error = "Nu am găsit niciun microfon"
                 return False
